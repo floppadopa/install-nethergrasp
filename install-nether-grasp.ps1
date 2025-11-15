@@ -791,6 +791,52 @@ catch {
 }
 Write-Host ""
 
+# 10.5. Update nether-bridge-server.js with actual CURSOR_API_KEY
+Write-Host "[STEP 10.5/10] Updating nether-bridge-server.js with API key..." -ForegroundColor Yellow
+
+$bridgeServerPath = Join-Path $TargetPath "nether-bridge-server.js"
+if ((Test-Path $bridgeServerPath) -and -not [string]::IsNullOrWhiteSpace($cursorApiKey)) {
+    try {
+        $bridgeServerContent = Get-Content $bridgeServerPath -Raw
+        
+        # Replace hardcoded API key with the user-provided one
+        # Match the multiline pattern: const CURSOR_API_KEY = process.env.CURSOR_API_KEY || "key_...";
+        $pattern = '(?s)const CURSOR_API_KEY\s*=\s*process\.env\.CURSOR_API_KEY\s*\|\|\s*[''"]key_[a-f0-9]+[''"];'
+        $replacement = "const CURSOR_API_KEY = process.env.CURSOR_API_KEY || `"$cursorApiKey`";"
+        
+        # Also match simpler pattern if it exists: const CURSOR_API_KEY = "key_...";
+        $simplePattern = 'const CURSOR_API_KEY\s*=\s*[''"]key_[a-f0-9]+[''"];'
+        
+        if ($bridgeServerContent -match $pattern) {
+            $bridgeServerContent = $bridgeServerContent -replace $pattern, $replacement
+            Set-Content -Path $bridgeServerPath -Value $bridgeServerContent -Encoding UTF8
+            Write-Host "   [OK] Bridge server updated with your CURSOR_API_KEY" -ForegroundColor Green
+            Write-Host "   [INFO] The server will use .env file or fallback to provided key" -ForegroundColor Cyan
+        } elseif ($bridgeServerContent -match $simplePattern) {
+            $simpleReplacement = "const CURSOR_API_KEY = process.env.CURSOR_API_KEY || `"$cursorApiKey`";"
+            $bridgeServerContent = $bridgeServerContent -replace $simplePattern, $simpleReplacement
+            Set-Content -Path $bridgeServerPath -Value $bridgeServerContent -Encoding UTF8
+            Write-Host "   [OK] Bridge server updated with your CURSOR_API_KEY" -ForegroundColor Green
+            Write-Host "   [INFO] The server will use .env file or fallback to provided key" -ForegroundColor Cyan
+        } else {
+            Write-Host "   [WARNING] Could not find API key pattern in bridge server" -ForegroundColor Yellow
+            Write-Host "   [NOTE] You may need to manually update CURSOR_API_KEY in nether-bridge-server.js" -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "   [ERROR] Failed to update bridge server: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "   [NOTE] Manually update CURSOR_API_KEY in nether-bridge-server.js" -ForegroundColor Yellow
+    }
+}
+elseif (-not (Test-Path $bridgeServerPath)) {
+    Write-Host "   [WARNING] nether-bridge-server.js not found, skipping update" -ForegroundColor Yellow
+}
+elseif ([string]::IsNullOrWhiteSpace($cursorApiKey)) {
+    Write-Host "   [WARNING] No CURSOR_API_KEY provided, keeping default in bridge server" -ForegroundColor Yellow
+    Write-Host "   [NOTE] Remember to update CURSOR_API_KEY in nether-bridge-server.js or .env" -ForegroundColor Yellow
+}
+Write-Host ""
+
 # Installation summary
 Write-Host "=============================================================" -ForegroundColor Cyan
 Write-Host "           INSTALLATION COMPLETE" -ForegroundColor Cyan

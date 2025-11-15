@@ -28,7 +28,9 @@ const PROMPT_HISTORY_FILE = join(PROMPTS_DIR, "prompt-history.json");
 
 // Cursor API Configuration
 // Generated after GitHub App installation at https://cursor.com/settings
+// This will be automatically configured by the installer, or you can set CURSOR_API_KEY in .env
 const CURSOR_API_KEY =
+  process.env.CURSOR_API_KEY ||
   "key_24b93592fbe0f5cf83a2eb9e9563db0a47820050abb48336beadfd1c72ae1d72";
 const CURSOR_API_BASE_URL = "https://api.cursor.com";
 
