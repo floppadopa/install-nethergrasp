@@ -13,8 +13,8 @@ REM Get the directory where this batch file is located
 set "SCRIPT_DIR=%~dp0"
 
 REM Check if PowerShell script exists
-if not exist "%SCRIPT_DIR%NetherGraspInstaller.ps1" (
-    echo [ERROR] NetherGraspInstaller.ps1 not found!
+if not exist "%SCRIPT_DIR%installation-script-2.ps1" (
+    echo [ERROR] installation-script-2.ps1 not found!
     echo.
     echo Please make sure the script is in the same directory as this batch file.
     echo.
@@ -25,7 +25,7 @@ if not exist "%SCRIPT_DIR%NetherGraspInstaller.ps1" (
 REM Run PowerShell script with execution policy bypass
 echo Running PowerShell launcher...
 echo.
-powershell.exe -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT_DIR%NetherGraspInstaller.ps1"
+powershell.exe -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT_DIR%installation-script-2.ps1"
 
 echo.
 echo ============================================================

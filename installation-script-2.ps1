@@ -139,7 +139,7 @@ catch {
 }
 
 # Run the installer script
-$installerScript = Join-Path $SourcePath "install-nether-grasp.ps1"
+$installerScript = Join-Path $SourcePath "installation-script.ps1"
 
 if (-not (Test-Path $installerScript)) {
     Write-Host "[ERROR] Installer script not found: $installerScript" -ForegroundColor Red

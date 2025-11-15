@@ -8,32 +8,26 @@ Nether-Grasp is a task management and prompt handling system that integrates wit
 
 ## Installation Methods
 
-### Method 1: Using the EXE (Windows Only - Recommended)
+### Method 1: Using the Batch File (Recommended - Easy!)
 
 1. **Download or clone this repository**
-2. **Double-click `NetherGraspInstaller.exe`**
+2. **Double-click `Click-me.bat`** ✨
 3. **Follow the prompts**:
    - Enter the full path where you want to create your project
    - Answer the T3 App setup questions
    - Provide environment variables when prompted
 
-### Method 2: Using the Batch File (If EXE doesn't work)
-
-1. **Download or clone this repository**
-2. **Double-click `NetherGraspInstaller.bat`**
-3. **Follow the prompts**
-
-### Method 3: Using PowerShell Script
+### Method 2: Using PowerShell Script
 
 1. **Download or clone this repository**
 2. **Open PowerShell in this directory**
 3. **Run the launcher**:
    ```powershell
-   .\NetherGraspInstaller.ps1
+   .\installation-script-2.ps1
    ```
 4. **Follow the prompts**
 
-### Method 4: Advanced - Direct Script Execution
+### Method 3: Advanced - Direct Script Execution
 
 If you want to run the installer directly (without the launcher):
 
@@ -42,7 +36,7 @@ If you want to run the installer directly (without the launcher):
 cd C:\Users\YourName\Projects
 
 # Run the installer script from the installer directory
-C:\path\to\installer\install-nether-grasp.ps1
+C:\path\to\installer\installation-script.ps1
 ```
 
 ## What the Installer Does
@@ -110,40 +104,24 @@ The installer will prompt you for these values:
 
 ## Troubleshooting
 
-### .EXE Opens But Shows Empty/Blank Console
+### Batch File Not Working
 
-If the `.exe` doesn't display anything:
+If `Click-me.bat` doesn't work:
 
-1. **Try the Batch File instead**:
-   - Double-click `NetherGraspInstaller.bat`
-   - This is a more reliable alternative
-
-2. **Or use PowerShell directly**:
+1. **Use PowerShell directly**:
    ```powershell
-   powershell -ExecutionPolicy Bypass -File .\NetherGraspInstaller.ps1
+   powershell -ExecutionPolicy Bypass -File .\installation-script-2.ps1
    ```
 
-3. **Check Windows Defender/Antivirus**:
-   - Some antivirus software blocks unsigned .exe files
-   - Add an exception for `NetherGraspInstaller.exe`
-
-4. **Run from PowerShell with error display**:
-   ```powershell
-   try { .\NetherGraspInstaller.exe } catch { Write-Host $_.Exception.Message }
-   ```
+2. **Check Windows Defender/Antivirus**:
+   - Some antivirus software may block scripts
+   - Add an exception for the installer folder
 
 ### "Cannot be loaded because running scripts is disabled"
 
 Run this in PowerShell as Administrator:
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-### "ps2exe module not found" (when building)
-
-Install the module:
-```powershell
-Install-Module -Name ps2exe -Scope CurrentUser
 ```
 
 ### Database connection issues
@@ -160,28 +138,16 @@ If you need to re-install Nether-Grasp into an existing project:
 
 ```powershell
 cd your-existing-project
-C:\path\to\installer\install-nether-grasp.ps1 -ReInstall
+C:\path\to\installer\installation-script.ps1 -ReInstall
 ```
-
-## Building the Installer (For Developers)
-
-If you've modified the launcher script and want to rebuild the .exe:
-
-1. **Run the build script**:
-   ```powershell
-   .\Build-Installer.ps1
-   ```
-
-2. **The new `NetherGraspInstaller.exe` will be created**
 
 ## Project Structure
 
 ```
 install-nether-grasp/
-├── NetherGraspInstaller.exe          # Double-click to run
-├── NetherGraspInstaller.ps1          # Launcher script
-├── install-nether-grasp.ps1          # Main installer script
-├── Build-Installer.ps1               # Build script for developers
+├── Click-me.bat                      # ✨ Double-click to run installer
+├── installation-script-2.ps1         # Launcher script (internal)
+├── installation-script.ps1           # Main installer script (internal)
 ├── nether-bridge-server.js           # WebSocket bridge server
 ├── README.md                          # This file
 ├── src/                               # Nether-Grasp source files

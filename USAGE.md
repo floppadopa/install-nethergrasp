@@ -9,7 +9,7 @@
    https://github.com/floppadopa/install-nethergrasp
    ```
 
-2. **Double-click `NetherGraspInstaller.exe`**
+2. **Double-click `Click-me.bat`** ✨
 
 3. **Follow the prompts**:
    - Enter the full path where you want to create your project
@@ -44,18 +44,18 @@ Before running the installer, make sure you have:
 
 ## 🔧 Installation Methods
 
-### Method 1: EXE Launcher (Easiest)
-Double-click `NetherGraspInstaller.exe`
+### Method 1: Batch Launcher (Easiest)
+Double-click `Click-me.bat` ✨
 
 ### Method 2: PowerShell Launcher
 ```powershell
-.\NetherGraspInstaller.ps1
+.\installation-script-2.ps1
 ```
 
 ### Method 3: Direct Script
 ```powershell
 cd C:\where\you\want\project
-C:\path\to\installer\install-nether-grasp.ps1
+C:\path\to\installer\installation-script.ps1
 ```
 
 ## 🚀 After Installation
@@ -75,7 +75,7 @@ To re-install Nether-Grasp into an existing project:
 
 ```powershell
 cd your-existing-project
-C:\path\to\installer\install-nether-grasp.ps1 -ReInstall
+C:\path\to\installer\installation-script.ps1 -ReInstall
 ```
 
 ## 🛠️ Troubleshooting
@@ -86,9 +86,9 @@ C:\path\to\installer\install-nether-grasp.ps1 -ReInstall
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-### Can't Find the EXE
+### Can't Find Click-me.bat
 
-Make sure you've downloaded the entire repository, not just the PowerShell script.
+Make sure you've downloaded the entire repository, not just individual files.
 
 ### Target Directory Doesn't Exist
 
@@ -128,17 +128,17 @@ You can:
 
 If you want to modify the installer:
 
-1. Edit `NetherGraspInstaller.ps1` or `install-nether-grasp.ps1`
-2. Rebuild the EXE:
+1. Edit `installation-script-2.ps1` (launcher) or `installation-script.ps1` (main installer)
+2. Test your changes:
    ```powershell
-   .\Build-Installer.ps1
+   .\Click-me.bat
    ```
-3. Test the new `NetherGraspInstaller.exe`
+3. No compilation needed - it's all plain PowerShell!
 
 ## ❓ Need Help?
 
 - Check the full **README.md** for detailed documentation
-- Review the **install-nether-grasp.ps1** script
+- Review the **installation-script.ps1** script
 - Open an issue on GitHub
 
 ---
