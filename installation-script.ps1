@@ -12,14 +12,14 @@ if ($Help) {
            NETHER-GRASP AUTOMATED INSTALLER
 =============================================================
 
-Usage: .\install-nether-grasp.ps1 [-ReInstall]
+Usage: .\installation-script.ps1 [-ReInstall]
 
 Examples:
   # Create new T3 App + install Nether-Grasp
-  .\install-nether-grasp.ps1
+  .\installation-script.ps1
   
   # Re-install Nether-Grasp into existing project (skip T3 App creation)
-  .\install-nether-grasp.ps1 -ReInstall
+  .\installation-script.ps1 -ReInstall
 
 This installer will:
   1. Create a new T3 App project (TypeScript, Tailwind, Prisma, PostgreSQL)
