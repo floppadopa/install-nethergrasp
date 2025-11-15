@@ -66,10 +66,8 @@ try {
         -company "Nether-Grasp" `
         -product "Nether-Grasp Installer" `
         -version "1.0.0.0" `
-        -noConsole:$false `
-        -noOutput `
-        -noError `
-        -requireAdmin:$false
+        -requireAdmin:$false `
+        -verbose
     
     if (Test-Path $exePath) {
         Write-Host ""

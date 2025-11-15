@@ -17,7 +17,13 @@ Nether-Grasp is a task management and prompt handling system that integrates wit
    - Answer the T3 App setup questions
    - Provide environment variables when prompted
 
-### Method 2: Using PowerShell Script
+### Method 2: Using the Batch File (If EXE doesn't work)
+
+1. **Download or clone this repository**
+2. **Double-click `NetherGraspInstaller.bat`**
+3. **Follow the prompts**
+
+### Method 3: Using PowerShell Script
 
 1. **Download or clone this repository**
 2. **Open PowerShell in this directory**
@@ -27,7 +33,7 @@ Nether-Grasp is a task management and prompt handling system that integrates wit
    ```
 4. **Follow the prompts**
 
-### Method 3: Advanced - Direct Script Execution
+### Method 4: Advanced - Direct Script Execution
 
 If you want to run the installer directly (without the launcher):
 
@@ -103,6 +109,28 @@ The installer will prompt you for these values:
    ```
 
 ## Troubleshooting
+
+### .EXE Opens But Shows Empty/Blank Console
+
+If the `.exe` doesn't display anything:
+
+1. **Try the Batch File instead**:
+   - Double-click `NetherGraspInstaller.bat`
+   - This is a more reliable alternative
+
+2. **Or use PowerShell directly**:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\NetherGraspInstaller.ps1
+   ```
+
+3. **Check Windows Defender/Antivirus**:
+   - Some antivirus software blocks unsigned .exe files
+   - Add an exception for `NetherGraspInstaller.exe`
+
+4. **Run from PowerShell with error display**:
+   ```powershell
+   try { .\NetherGraspInstaller.exe } catch { Write-Host $_.Exception.Message }
+   ```
 
 ### "Cannot be loaded because running scripts is disabled"
 

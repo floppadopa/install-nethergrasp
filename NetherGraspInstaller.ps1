@@ -5,6 +5,19 @@ param(
     [switch]$Help
 )
 
+# Force console output to be visible
+$ErrorActionPreference = "Continue"
+$VerbosePreference = "Continue"
+
+# Test if we can write to console
+try {
+    Write-Output "Starting Nether-Grasp Installer..."
+    [Console]::WriteLine("Initializing...")
+}
+catch {
+    # Fallback if console methods fail
+}
+
 if ($Help) {
     Write-Host @"
 =============================================================
@@ -19,11 +32,20 @@ Usage: .\NetherGraspInstaller.ps1
    Or: Double-click NetherGraspInstaller.exe
 
 "@
+    Read-Host "Press Enter to exit"
     exit 0
 }
 
 # Set console title
-$host.UI.RawUI.WindowTitle = "Nether-Grasp Installer"
+try {
+    $host.UI.RawUI.WindowTitle = "Nether-Grasp Installer"
+}
+catch {
+    # Ignore if we can't set title
+}
+
+# Clear screen for better visibility
+Clear-Host
 
 Write-Host "=============================================================" -ForegroundColor Cyan
 Write-Host "         NETHER-GRASP INSTALLER LAUNCHER" -ForegroundColor Cyan
@@ -33,7 +55,16 @@ Write-Host "This will help you install Nether-Grasp into a new project." -Foregr
 Write-Host ""
 
 # Get the directory where this launcher script is located (source directory)
-$SourcePath = Split-Path -Parent $MyInvocation.MyCommand.Path
+$SourcePath = if ($PSScriptRoot) { 
+    $PSScriptRoot 
+} elseif ($MyInvocation.MyCommand.Path) { 
+    Split-Path -Parent $MyInvocation.MyCommand.Path 
+} else { 
+    Get-Location 
+}
+
+Write-Host "[DEBUG] Script location: $SourcePath" -ForegroundColor Gray
+Write-Host ""
 
 # Prompt for target directory
 Write-Host "Where would you like to create your new project?" -ForegroundColor Yellow
