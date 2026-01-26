@@ -162,6 +162,8 @@ Write-Host "[STEP 1/9] Copying frontend components..." -ForegroundColor Yellow
 $frontendFiles = @(
     "src\app\nether-grasp\page.tsx",
     "src\app\nether-grasp\_css\page.css",
+    "src\app\d\[[...slug]]\page.tsx",
+    "src\app\d\[[...slug]]\_css\page.css",
     "src\components\nether_grasp\FaviconInverter.tsx",
     "src\components\nether_grasp\Navbar.tsx",
     "src\components\nether_grasp\MainPart.tsx",
@@ -226,7 +228,13 @@ Write-Host "[STEP 2/9] Copying API routes..." -ForegroundColor Yellow
 $apiFiles = @(
     "src\app\api\nether-grasp\save-files\route.ts",
     "src\app\api\nether-grasp\tasks\route.ts",
-    "src\app\api\webhooks\vercel\route.ts"
+    "src\app\api\webhooks\vercel\route.ts",
+    "src\app\api\dbdiagram\diagram_permission\[slug]\route.ts",
+    "src\app\api\dbdiagram\query\[slug]\route.ts",
+    "src\app\api\dbdiagram\subscription\public_feature_rules\[slug]\route.ts",
+    "src\app\api\dbdiagram\sync\[slug]\route.ts",
+    "src\app\api\dbdiagram\table\[name]\route.ts",
+    "src\app\api\dbdiagram\tables\route.ts"
 )
 
 $apiStart = $filescopied
@@ -270,7 +278,31 @@ $assetFiles = @(
     "public\nether-grasp.png",
     "public\fonts\pixelgrid-squarebolds.woff",
     "public\fonts\pixelgrid-squareboldm.woff",
-    "public\fonts\pixelgrid-squareboldxl.woff"
+    "public\fonts\pixelgrid-squareboldxl.woff",
+    "public\assets\DbxNotifications-BZIc0Tdf.js",
+    "public\assets\DbxNotifications-DgyFJ-QX.css",
+    "public\assets\diagram-BKB80E78.js",
+    "public\assets\diagram-DJO-dynF.css",
+    "public\assets\holistics-logo-square-CsK6csWb.png",
+    "public\assets\logo-UzR4BxSc.svg",
+    "public\assets\microsoft-logo-RjkpDaxr.js",
+    "public\assets\PrivatePageContainer-__1G81FE.css",
+    "public\assets\PrivatePageContainer-BVDQ-cpv.js",
+    "public\assets\sentryCatcher-COGPhNS0.js",
+    "public\assets\typeof-OGVaD8Cd.js",
+    "public\database\assets\DbxNotifications-BZIc0Tdf.js",
+    "public\database\assets\DbxNotifications-DgyFJ-QX.css",
+    "public\database\assets\diagram-BKB80E78.js",
+    "public\database\assets\diagram-DJO-dynF.css",
+    "public\database\assets\index-B5iclh-t.css",
+    "public\database\assets\index-CDtQ8wxC.js",
+    "public\database\assets\microsoft-logo-RjkpDaxr.js",
+    "public\database\assets\PrivatePageContainer-__1G81FE.css",
+    "public\database\assets\PrivatePageContainer-BVDQ-cpv.js",
+    "public\database\assets\sentryCatcher-COGPhNS0.js",
+    "public\database\assets\typeof-OGVaD8Cd.js",
+    "public\database\js\cookie.js",
+    "public\query\database.json"
 )
 
 $assetStart = $filescopied
@@ -311,6 +343,30 @@ foreach ($file in $cursorFiles) {
 }
 
 Write-Host "   [OK] Cursor configuration copied ($($filescopied - $cursorStart) files)" -ForegroundColor Green
+Write-Host ""
+
+# 5.1. Copy Server files
+Write-Host "[STEP 5.1/10] Copying server files..." -ForegroundColor Yellow
+
+$serverFiles = @(
+    "src\server\db.ts",
+    "src\server\db-pool.ts"
+)
+
+$serverStart = $filescopied
+foreach ($file in $serverFiles) {
+    $source = Join-Path $SourcePath $file
+    $destination = Join-Path $TargetPath $file
+    
+    if (Test-Path $source) {
+        Copy-FileWithCheck $source $destination | Out-Null
+    }
+    else {
+        Write-Host "   [WARNING] Not found: $file" -ForegroundColor Yellow
+    }
+}
+
+Write-Host "   [OK] Server files copied ($($filescopied - $serverStart) files)" -ForegroundColor Green
 Write-Host ""
 
 # 5.5. Update ESLint configuration (relaxed rules for Nether-Grasp compatibility)
@@ -581,29 +637,8 @@ if ((Test-Path $sourceSchemaPath) -and (Test-Path $targetSchemaPath)) {
             }
         }
         
-        # Update db.ts to use standard @prisma/client import
-        $dbTsPath = Join-Path $TargetPath "src\server\db.ts"
-        if (Test-Path $dbTsPath) {
-            $dbTsContent = Get-Content $dbTsPath -Raw
-            
-            # Check if it's using custom generated/prisma path
-            if ($dbTsContent -match 'from\s+[''"].*generated/prisma[''"]') {
-                Write-Host "   [INFO] Updating db.ts to use standard @prisma/client import..." -ForegroundColor Cyan
-                
-                # Replace custom import with standard @prisma/client
-                $dbTsContent = $dbTsContent -replace 'from\s+[''"].*generated/prisma[''"]', 'from "@prisma/client"'
-                
-                Set-Content $dbTsPath $dbTsContent
-                Write-Host "   [OK] Updated db.ts to use @prisma/client" -ForegroundColor Green
-                $schemaModified = $true
-            }
-            else {
-                Write-Host "   [INFO] db.ts already uses standard @prisma/client import" -ForegroundColor Cyan
-            }
-        }
-        else {
-            Write-Host "   [WARNING] db.ts not found at src\server\db.ts" -ForegroundColor Yellow
-        }
+        # Note: db.ts is now copied from source in Step 5.1, so we skip import path modification
+        Write-Host "   [INFO] db.ts was copied from source (Step 5.1) - using WASM Prisma adapter" -ForegroundColor Cyan
         
         # Generate Prisma client if any changes were made
         if ($schemaModified) {
@@ -927,26 +962,26 @@ Write-Host ""
 
 # 2. Install dependencies
 Write-Host "[AUTO-STEP 2/5] Installing dependencies..." -ForegroundColor Yellow
-Write-Host "   [INFO] Auto-installing: ws, @types/ws, prisma, concurrently" -ForegroundColor Cyan
+Write-Host "   [INFO] Auto-installing: ws, @types/ws, pg, prisma, concurrently" -ForegroundColor Cyan
     try {
         Push-Location $TargetPath
         
-        Write-Host "   [INFO] Running: npm install ws @types/ws (in target directory)" -ForegroundColor Cyan
-        & npm.cmd install ws "@types/ws" 2>&1 | Out-Host
+        Write-Host "   [INFO] Running: npm install ws @types/ws pg (in target directory)" -ForegroundColor Cyan
+        & npm.cmd install ws "@types/ws" pg 2>&1 | Out-Host
         
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "   [INFO] Running: npm install -D prisma @prisma/client concurrently (in target directory)" -ForegroundColor Cyan
-            & npm.cmd install -D prisma "@prisma/client" concurrently 2>&1 | Out-Host
+            Write-Host "   [INFO] Running: npm install -D prisma @prisma/client concurrently @types/pg (in target directory)" -ForegroundColor Cyan
+            & npm.cmd install -D prisma "@prisma/client" concurrently "@types/pg" 2>&1 | Out-Host
             
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "   [OK] All dependencies installed successfully" -ForegroundColor Green
             }
             else {
-                Write-Host "   [WARNING] Dev dependencies install failed. Run manually: npm install -D prisma @prisma/client concurrently" -ForegroundColor Yellow
+                Write-Host "   [WARNING] Dev dependencies install failed. Run manually: npm install -D prisma @prisma/client concurrently @types/pg" -ForegroundColor Yellow
             }
         }
         else {
-            Write-Host "   [WARNING] npm install failed. Run manually: npm install ws @types/ws" -ForegroundColor Yellow
+            Write-Host "   [WARNING] npm install failed. Run manually: npm install ws @types/ws pg" -ForegroundColor Yellow
         }
         
         Pop-Location
@@ -954,7 +989,7 @@ Write-Host "   [INFO] Auto-installing: ws, @types/ws, prisma, concurrently" -For
     catch {
         Pop-Location
         Write-Host "   [ERROR] Failed to install dependencies: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "   [NOTE] Run manually: npm install ws @types/ws && npm install -D prisma @prisma/client concurrently" -ForegroundColor Yellow
+        Write-Host "   [NOTE] Run manually: npm install ws @types/ws pg && npm install -D prisma @prisma/client concurrently @types/pg" -ForegroundColor Yellow
     }
 Write-Host ""
 
