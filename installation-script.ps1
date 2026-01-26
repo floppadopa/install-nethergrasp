@@ -135,16 +135,17 @@ $filescopied = 0
 $errors = 0
 
 # Function to copy file with error handling
+# Uses -LiteralPath to handle paths with special characters like [[...slug]]
 function Copy-FileWithCheck {
     param($Source, $Destination)
     
     try {
         $destDir = Split-Path -Parent $Destination
-        if (-not (Test-Path $destDir)) {
+        if (-not (Test-Path -LiteralPath $destDir)) {
             New-Item -ItemType Directory -Path $destDir -Force | Out-Null
         }
         
-        Copy-Item -Path $Source -Destination $Destination -Force
+        Copy-Item -LiteralPath $Source -Destination $Destination -Force
         $script:filescopied++
         return $true
     }
@@ -211,7 +212,7 @@ foreach ($file in $frontendFiles) {
     $source = Join-Path $SourcePath $file
     $destination = Join-Path $TargetPath $file
     
-    if (Test-Path $source) {
+    if (Test-Path -LiteralPath $source) {
         Copy-FileWithCheck $source $destination | Out-Null
     }
     else {
@@ -242,7 +243,7 @@ foreach ($file in $apiFiles) {
     $source = Join-Path $SourcePath $file
     $destination = Join-Path $TargetPath $file
     
-    if (Test-Path $source) {
+    if (Test-Path -LiteralPath $source) {
         Copy-FileWithCheck $source $destination | Out-Null
     }
     else {
@@ -261,7 +262,7 @@ $bridgeFile = "nether-bridge-server.js"
 $source = Join-Path $SourcePath $bridgeFile
 $destination = Join-Path $TargetPath $bridgeFile
 
-if (Test-Path $source) {
+if (Test-Path -LiteralPath $source) {
     Copy-FileWithCheck $source $destination | Out-Null
     Write-Host "   [OK] Bridge server copied" -ForegroundColor Green
 }
@@ -310,7 +311,7 @@ foreach ($file in $assetFiles) {
     $source = Join-Path $SourcePath $file
     $destination = Join-Path $TargetPath $file
     
-    if (Test-Path $source) {
+    if (Test-Path -LiteralPath $source) {
         Copy-FileWithCheck $source $destination | Out-Null
     }
     else {
@@ -334,7 +335,7 @@ foreach ($file in $cursorFiles) {
     $source = Join-Path $SourcePath $file
     $destination = Join-Path $TargetPath $file
     
-    if (Test-Path $source) {
+    if (Test-Path -LiteralPath $source) {
         Copy-FileWithCheck $source $destination | Out-Null
     }
     else {
@@ -358,7 +359,7 @@ foreach ($file in $serverFiles) {
     $source = Join-Path $SourcePath $file
     $destination = Join-Path $TargetPath $file
     
-    if (Test-Path $source) {
+    if (Test-Path -LiteralPath $source) {
         Copy-FileWithCheck $source $destination | Out-Null
     }
     else {
