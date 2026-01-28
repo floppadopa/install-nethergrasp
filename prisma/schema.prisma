@@ -10,142 +10,9 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-// User model - synced with Clerk authentication
-model User {
-    id                   String    @id // Clerk user ID
-    email                String    @unique
-    name                 String?
-    imageUrl             String?
-    profilePictureUrl    String?
-    numero               String?   // Phone number
-    email_verified       String?
-    adresse              String?   // Address
-    faculte              String?   // Faculty/University
-    
-    // Subscription/Billing fields
-    forfait              String?   @default("free") // Plan: "free", "premium", "enterprise"
-    stripeCustomerId     String?   @unique
-    stripeSubscriptionId String?   @unique
-    subscriptionStatus   String?   // "active", "canceled", "incomplete", "incomplete_expired", "past_due", "trialing", "unpaid"
-    subscriptionEndDate  DateTime? // When the current subscription period ends
-    
-    createdAt            DateTime  @default(now())
-    updatedAt            DateTime  @updatedAt
-
-    // Relations
-    events Event[]
-
-    @@index([email])
-    @@index([stripeCustomerId])
-}
-
-// Calendar Event model
-model Event {
-    id          Int      @id @default(autoincrement())
-    title       String
-    description String?
-
-    // Time fields
-    startTime DateTime
-    endTime   DateTime
-    allDay    Boolean @default(false)
-
-    // Event metadata
-    type     String  @default("other") // "study", "exam", "deadline", "personal", etc.
-    color    String? @default("#3B82F6") // Hex color for calendar UI
-    location String?
-
-    // Relations
-    userId   String
-    user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-    courseId Int?
-    course   Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
-
-    // Optional: Recurrence
-    isRecurring    Boolean @default(false)
-    recurrenceRule String? // Store RRULE format or custom JSON
-
-    // Timestamps
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    @@index([userId])
-    @@index([startTime])
-    @@index([userId, startTime])
-}
-
-model Course {
-    id            Int      @id @default(autoincrement())
-    title         String
-    description   String
-    difficulty    Int      // 1, 2, or 3
-    banner        String   // URL to banner image
-    type          String   // "Reflexion" or "Par coeur"
-    priority      Int      @default(1) // Display order, lower = higher priority
-    annales_Count Int      @default(0) // Total count of annales
-    ebc_Count     Int      @default(0) // Total count of examens (EBC)
-    xp_Count      Int      @default(0) // Total XP count
-    createdAt     DateTime @default(now())
-    updatedAt     DateTime @updatedAt
-
-    // Relations
-    events   Event[]
-    chapters Chapter[]
-    badges   Badge[]
-
-    @@index([title])
-    @@index([priority])
-    @@map("Class")
-}
-
-model Chapter {
-    id            Int      @id @default(autoincrement())
-    title         String
-    description   String?
-    actualisation Boolean  @default(false) // Whether the chapter is up-to-date
-    priority      Int      // Order/position of the chapter
-    createdAt     DateTime @default(now())
-    updatedAt     DateTime @updatedAt
-
-    // Relations
-    classId Int
-    class   Course @relation(fields: [classId], references: [id], onDelete: Cascade)
-    steps   Step[]
-
-    @@index([classId])
-    @@index([classId, priority])
-}
-
-model Step {
-    id        Int      @id @default(autoincrement())
-    title     String
-    priority  Int      // Order/position of the step (not null)
-    url       String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    // Relations
-    chapterId Int
-    chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-
-    @@index([chapterId])
-    @@index([chapterId, priority])
-}
-
-model Badge {
-    id          Int      @id @default(autoincrement())
-    title       String
-    description String
-    url         String   // Image URL for the badge
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
-
-    // Relations
-    classId Int
-    class   Course @relation(fields: [classId], references: [id], onDelete: Cascade)
-
-    @@index([classId])
-}
+// ============================================
+// Task Management System
+// ============================================
 
 // Nether Grasp Task model - for AI agent task management
 model Task {
@@ -186,4 +53,33 @@ model Task {
     @@index([status])
     @@index([branchName])
     @@index([createdAt])
+}
+
+// ============================================
+// Diagram Configuration Storage
+// ============================================
+
+// Stores diagram positions and settings for dbdiagram visualization
+model DiagramConfig {
+    id             Int      @id @default(autoincrement())
+    slug           String   @unique @db.VarChar(255) // Diagram identifier (e.g., "zebi", "main")
+    
+    // DBML content
+    content        String   @db.Text // The DBML schema content
+    
+    // Metadata
+    userid         String   @db.VarChar(255) // Owner identifier
+    name           String   @db.VarChar(255) // Display name
+    
+    // Diagram positions and settings (stored as JSON)
+    diagram        Json     @default("{}") // Contains tables array with x, y positions
+    tableGroups    Json     @default("[]") // Table groupings
+    referencePaths Json     @default("[]") // Reference path customizations
+    detailLevel    String   @default("All") @db.VarChar(50)
+    
+    // Timestamps
+    createdAt      DateTime @default(now()) @map("created_at")
+    updatedAt      DateTime @updatedAt @map("updated_at")
+    
+    @@map("diagram_config")
 }
