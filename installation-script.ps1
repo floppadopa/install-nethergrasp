@@ -850,154 +850,173 @@ Write-Host ""
 
 # 10. Update/create .env
 Write-Host "[STEP 10/10] Setting up .env file..." -ForegroundColor Yellow
-Write-Host ""
-Write-Host "   Please provide the following environment variables:" -ForegroundColor Cyan
-Write-Host "   (Press Enter to skip any variable)" -ForegroundColor Yellow
-Write-Host ""
 
-# Prompt for required variables
-$databaseUrl = Read-Host "   DATABASE_URL (PostgreSQL connection string)"
-$cursorApiKey = Read-Host "   CURSOR_API_KEY (Get from Cursor settings)"
-$vercelWebhookSecret = Read-Host "   VERCEL_WEBHOOK_SECRET (Random string for webhook security)"
-$vercelApiToken = Read-Host "   VERCEL_API_TOKEN (Get from Vercel settings)"
-
-Write-Host ""
-
-$envPath = Join-Path $TargetPath ".env"
-$envContent = ""
-
-# Read existing .env if it exists
-if (Test-Path $envPath) {
-    $envContent = Get-Content $envPath -Raw
-    Write-Host "   [INFO] Existing .env file found, updating..." -ForegroundColor Cyan
+# Skip prompts in Reinstall mode - keep existing .env values
+if ($ReInstall) {
+    Write-Host "   [INFO] Re-install mode: Keeping existing .env configuration" -ForegroundColor Cyan
+    Write-Host "   [SKIPPED] API key prompts skipped (existing values preserved)" -ForegroundColor Yellow
+    
+    # Set empty values so the rest of the script doesn't error
+    $databaseUrl = ""
+    $cursorApiKey = ""
+    $vercelWebhookSecret = ""
+    $vercelApiToken = ""
 }
 else {
-    Write-Host "   [INFO] Creating new .env file..." -ForegroundColor Cyan
-}
+    Write-Host ""
+    Write-Host "   Please provide the following environment variables:" -ForegroundColor Cyan
+    Write-Host "   (Press Enter to skip any variable)" -ForegroundColor Yellow
+    Write-Host ""
 
-# Function to set or update environment variable
-function Set-EnvVariable {
-    param($Name, $Value, [ref]$Content)
-    
-    if ([string]::IsNullOrWhiteSpace($Value)) {
-        # If value is empty, only add if variable doesn't exist
-        if ($Content.Value -notmatch "$Name\s*=") {
-            $Content.Value += "$Name=`n"
-        }
+    # Prompt for required variables
+    $databaseUrl = Read-Host "   DATABASE_URL (PostgreSQL connection string)"
+    $cursorApiKey = Read-Host "   CURSOR_API_KEY (Get from Cursor settings)"
+    $vercelWebhookSecret = Read-Host "   VERCEL_WEBHOOK_SECRET (Random string for webhook security)"
+    $vercelApiToken = Read-Host "   VERCEL_API_TOKEN (Get from Vercel settings)"
+
+    Write-Host ""
+
+    $envPath = Join-Path $TargetPath ".env"
+    $envContent = ""
+
+    # Read existing .env if it exists
+    if (Test-Path $envPath) {
+        $envContent = Get-Content $envPath -Raw
+        Write-Host "   [INFO] Existing .env file found, updating..." -ForegroundColor Cyan
     }
     else {
-        # If value provided, set or update it
-        if ($Content.Value -match "$Name\s*=.*") {
-            # Update existing variable
-            $Content.Value = $Content.Value -replace "$Name\s*=.*", "$Name=$Value"
+        Write-Host "   [INFO] Creating new .env file..." -ForegroundColor Cyan
+    }
+
+    # Function to set or update environment variable
+    function Set-EnvVariable {
+        param($Name, $Value, [ref]$Content)
+        
+        if ([string]::IsNullOrWhiteSpace($Value)) {
+            # If value is empty, only add if variable doesn't exist
+            if ($Content.Value -notmatch "$Name\s*=") {
+                $Content.Value += "$Name=`n"
+            }
         }
         else {
-            # Add new variable
-            $Content.Value += "$Name=$Value`n"
+            # If value provided, set or update it
+            if ($Content.Value -match "$Name\s*=.*") {
+                # Update existing variable
+                $Content.Value = $Content.Value -replace "$Name\s*=.*", "$Name=$Value"
+            }
+            else {
+                # Add new variable
+                $Content.Value += "$Name=$Value`n"
+            }
         }
     }
-}
 
-# Add header if new file
-if ([string]::IsNullOrWhiteSpace($envContent)) {
-    $envContent = "# Environment Variables`n# Configured by Nether-Grasp installer`n`n"
-}
-
-# Set the prompted variables
-Set-EnvVariable -Name "DATABASE_URL" -Value $databaseUrl -Content ([ref]$envContent)
-Set-EnvVariable -Name "CURSOR_API_KEY" -Value $cursorApiKey -Content ([ref]$envContent)
-Set-EnvVariable -Name "VERCEL_WEBHOOK_SECRET" -Value $vercelWebhookSecret -Content ([ref]$envContent)
-Set-EnvVariable -Name "VERCEL_API_TOKEN" -Value $vercelApiToken -Content ([ref]$envContent)
-
-# Add other common variables if they don't exist
-$otherVars = @(
-    "NEXT_PUBLIC_APP_URL",
-    "STRIPE_WEBHOOK_SECRET",
-    "STRIPE_SECRET_KEY",
-    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-    "CLERK_WEBHOOK_SECRET",
-    "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
-    "NEXT_PUBLIC_CLERK_SIGN_UP_URL",
-    "NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL",
-    "NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL",
-    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
-    "CLERK_SECRET_KEY"
-)
-
-foreach ($var in $otherVars) {
-    Set-EnvVariable -Name $var -Value "" -Content ([ref]$envContent)
-}
-
-# Write to file
-try {
-    Set-Content -Path $envPath -Value $envContent.TrimEnd()
-    Write-Host "   [OK] Environment variables saved to .env" -ForegroundColor Green
-    
-    # Show what was configured
-    $configured = @()
-    $skipped = @()
-    
-    if (-not [string]::IsNullOrWhiteSpace($databaseUrl)) { $configured += "DATABASE_URL" } else { $skipped += "DATABASE_URL" }
-    if (-not [string]::IsNullOrWhiteSpace($cursorApiKey)) { $configured += "CURSOR_API_KEY" } else { $skipped += "CURSOR_API_KEY" }
-    if (-not [string]::IsNullOrWhiteSpace($vercelWebhookSecret)) { $configured += "VERCEL_WEBHOOK_SECRET" } else { $skipped += "VERCEL_WEBHOOK_SECRET" }
-    if (-not [string]::IsNullOrWhiteSpace($vercelApiToken)) { $configured += "VERCEL_API_TOKEN" } else { $skipped += "VERCEL_API_TOKEN" }
-    
-    if ($configured.Count -gt 0) {
-        Write-Host "   [INFO] Configured: $($configured -join ', ')" -ForegroundColor Green
+    # Add header if new file
+    if ([string]::IsNullOrWhiteSpace($envContent)) {
+        $envContent = "# Environment Variables`n# Configured by Nether-Grasp installer`n`n"
     }
-    if ($skipped.Count -gt 0) {
-        Write-Host "   [WARNING] Skipped (empty): $($skipped -join ', ')" -ForegroundColor Yellow
-        Write-Host "   [NOTE] Remember to configure these variables manually in .env" -ForegroundColor Yellow
+
+    # Set the prompted variables
+    Set-EnvVariable -Name "DATABASE_URL" -Value $databaseUrl -Content ([ref]$envContent)
+    Set-EnvVariable -Name "CURSOR_API_KEY" -Value $cursorApiKey -Content ([ref]$envContent)
+    Set-EnvVariable -Name "VERCEL_WEBHOOK_SECRET" -Value $vercelWebhookSecret -Content ([ref]$envContent)
+    Set-EnvVariable -Name "VERCEL_API_TOKEN" -Value $vercelApiToken -Content ([ref]$envContent)
+
+    # Add other common variables if they don't exist
+    $otherVars = @(
+        "NEXT_PUBLIC_APP_URL",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_SECRET_KEY",
+        "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+        "CLERK_WEBHOOK_SECRET",
+        "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
+        "NEXT_PUBLIC_CLERK_SIGN_UP_URL",
+        "NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL",
+        "NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL",
+        "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+        "CLERK_SECRET_KEY"
+    )
+
+    foreach ($var in $otherVars) {
+        Set-EnvVariable -Name $var -Value "" -Content ([ref]$envContent)
     }
-}
-catch {
-    Write-Host "   [ERROR] Failed to write .env: $($_.Exception.Message)" -ForegroundColor Red
+
+    # Write to file
+    try {
+        Set-Content -Path $envPath -Value $envContent.TrimEnd()
+        Write-Host "   [OK] Environment variables saved to .env" -ForegroundColor Green
+        
+        # Show what was configured
+        $configured = @()
+        $skipped = @()
+        
+        if (-not [string]::IsNullOrWhiteSpace($databaseUrl)) { $configured += "DATABASE_URL" } else { $skipped += "DATABASE_URL" }
+        if (-not [string]::IsNullOrWhiteSpace($cursorApiKey)) { $configured += "CURSOR_API_KEY" } else { $skipped += "CURSOR_API_KEY" }
+        if (-not [string]::IsNullOrWhiteSpace($vercelWebhookSecret)) { $configured += "VERCEL_WEBHOOK_SECRET" } else { $skipped += "VERCEL_WEBHOOK_SECRET" }
+        if (-not [string]::IsNullOrWhiteSpace($vercelApiToken)) { $configured += "VERCEL_API_TOKEN" } else { $skipped += "VERCEL_API_TOKEN" }
+        
+        if ($configured.Count -gt 0) {
+            Write-Host "   [INFO] Configured: $($configured -join ', ')" -ForegroundColor Green
+        }
+        if ($skipped.Count -gt 0) {
+            Write-Host "   [WARNING] Skipped (empty): $($skipped -join ', ')" -ForegroundColor Yellow
+            Write-Host "   [NOTE] Remember to configure these variables manually in .env" -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "   [ERROR] Failed to write .env: $($_.Exception.Message)" -ForegroundColor Red
+    }
 }
 Write-Host ""
 
 # 10.5. Update nether-bridge-server.js with actual CURSOR_API_KEY
 Write-Host "[STEP 10.5/10] Updating nether-bridge-server.js with API key..." -ForegroundColor Yellow
 
-$bridgeServerPath = Join-Path $TargetPath "nether-bridge-server.js"
-if ((Test-Path $bridgeServerPath) -and -not [string]::IsNullOrWhiteSpace($cursorApiKey)) {
-    try {
-        $bridgeServerContent = Get-Content $bridgeServerPath -Raw
-        
-        # Replace hardcoded API key with the user-provided one
-        # Match the multiline pattern: const CURSOR_API_KEY = process.env.CURSOR_API_KEY || "key_...";
-        $pattern = '(?s)const CURSOR_API_KEY\s*=\s*process\.env\.CURSOR_API_KEY\s*\|\|\s*[''"]key_[a-f0-9]+[''"];'
-        $replacement = "const CURSOR_API_KEY = process.env.CURSOR_API_KEY || `"$cursorApiKey`";"
-        
-        # Also match simpler pattern if it exists: const CURSOR_API_KEY = "key_...";
-        $simplePattern = 'const CURSOR_API_KEY\s*=\s*[''"]key_[a-f0-9]+[''"];'
-        
-        if ($bridgeServerContent -match $pattern) {
-            $bridgeServerContent = $bridgeServerContent -replace $pattern, $replacement
-            Set-Content -Path $bridgeServerPath -Value $bridgeServerContent -Encoding UTF8
-            Write-Host "   [OK] Bridge server updated with your CURSOR_API_KEY" -ForegroundColor Green
-            Write-Host "   [INFO] The server will use .env file or fallback to provided key" -ForegroundColor Cyan
-        } elseif ($bridgeServerContent -match $simplePattern) {
-            $simpleReplacement = "const CURSOR_API_KEY = process.env.CURSOR_API_KEY || `"$cursorApiKey`";"
-            $bridgeServerContent = $bridgeServerContent -replace $simplePattern, $simpleReplacement
-            Set-Content -Path $bridgeServerPath -Value $bridgeServerContent -Encoding UTF8
-            Write-Host "   [OK] Bridge server updated with your CURSOR_API_KEY" -ForegroundColor Green
-            Write-Host "   [INFO] The server will use .env file or fallback to provided key" -ForegroundColor Cyan
-        } else {
-            Write-Host "   [WARNING] Could not find API key pattern in bridge server" -ForegroundColor Yellow
-            Write-Host "   [NOTE] You may need to manually update CURSOR_API_KEY in nether-bridge-server.js" -ForegroundColor Yellow
+if ($ReInstall) {
+    Write-Host "   [SKIPPED] Re-install mode: Keeping existing bridge server configuration" -ForegroundColor Yellow
+}
+else {
+    $bridgeServerPath = Join-Path $TargetPath "nether-bridge-server.js"
+    if ((Test-Path $bridgeServerPath) -and -not [string]::IsNullOrWhiteSpace($cursorApiKey)) {
+        try {
+            $bridgeServerContent = Get-Content $bridgeServerPath -Raw
+            
+            # Replace hardcoded API key with the user-provided one
+            # Match the multiline pattern: const CURSOR_API_KEY = process.env.CURSOR_API_KEY || "key_...";
+            $pattern = '(?s)const CURSOR_API_KEY\s*=\s*process\.env\.CURSOR_API_KEY\s*\|\|\s*[''"]key_[a-f0-9]+[''"];'
+            $replacement = "const CURSOR_API_KEY = process.env.CURSOR_API_KEY || `"$cursorApiKey`";"
+            
+            # Also match simpler pattern if it exists: const CURSOR_API_KEY = "key_...";
+            $simplePattern = 'const CURSOR_API_KEY\s*=\s*[''"]key_[a-f0-9]+[''"];'
+            
+            if ($bridgeServerContent -match $pattern) {
+                $bridgeServerContent = $bridgeServerContent -replace $pattern, $replacement
+                Set-Content -Path $bridgeServerPath -Value $bridgeServerContent -Encoding UTF8
+                Write-Host "   [OK] Bridge server updated with your CURSOR_API_KEY" -ForegroundColor Green
+                Write-Host "   [INFO] The server will use .env file or fallback to provided key" -ForegroundColor Cyan
+            } elseif ($bridgeServerContent -match $simplePattern) {
+                $simpleReplacement = "const CURSOR_API_KEY = process.env.CURSOR_API_KEY || `"$cursorApiKey`";"
+                $bridgeServerContent = $bridgeServerContent -replace $simplePattern, $simpleReplacement
+                Set-Content -Path $bridgeServerPath -Value $bridgeServerContent -Encoding UTF8
+                Write-Host "   [OK] Bridge server updated with your CURSOR_API_KEY" -ForegroundColor Green
+                Write-Host "   [INFO] The server will use .env file or fallback to provided key" -ForegroundColor Cyan
+            } else {
+                Write-Host "   [WARNING] Could not find API key pattern in bridge server" -ForegroundColor Yellow
+                Write-Host "   [NOTE] You may need to manually update CURSOR_API_KEY in nether-bridge-server.js" -ForegroundColor Yellow
+            }
+        }
+        catch {
+            Write-Host "   [ERROR] Failed to update bridge server: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "   [NOTE] Manually update CURSOR_API_KEY in nether-bridge-server.js" -ForegroundColor Yellow
         }
     }
-    catch {
-        Write-Host "   [ERROR] Failed to update bridge server: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "   [NOTE] Manually update CURSOR_API_KEY in nether-bridge-server.js" -ForegroundColor Yellow
+    elseif (-not (Test-Path $bridgeServerPath)) {
+        Write-Host "   [WARNING] nether-bridge-server.js not found, skipping update" -ForegroundColor Yellow
     }
-}
-elseif (-not (Test-Path $bridgeServerPath)) {
-    Write-Host "   [WARNING] nether-bridge-server.js not found, skipping update" -ForegroundColor Yellow
-}
-elseif ([string]::IsNullOrWhiteSpace($cursorApiKey)) {
-    Write-Host "   [WARNING] No CURSOR_API_KEY provided, keeping default in bridge server" -ForegroundColor Yellow
-    Write-Host "   [NOTE] Remember to update CURSOR_API_KEY in nether-bridge-server.js or .env" -ForegroundColor Yellow
+    elseif ([string]::IsNullOrWhiteSpace($cursorApiKey)) {
+        Write-Host "   [WARNING] No CURSOR_API_KEY provided, keeping default in bridge server" -ForegroundColor Yellow
+        Write-Host "   [NOTE] Remember to update CURSOR_API_KEY in nether-bridge-server.js or .env" -ForegroundColor Yellow
+    }
 }
 Write-Host ""
 
@@ -1021,71 +1040,78 @@ Write-Host ""
 
 # 1. Set up Git origin
 Write-Host "[AUTO-STEP 1/5] Setting up Git repository..." -ForegroundColor Yellow
-Write-Host ""
-$gitRepoUrl = Read-Host "   GitHub repository URL (e.g., https://github.com/user/repo.git)"
-Write-Host ""
 
-if (-not [string]::IsNullOrWhiteSpace($gitRepoUrl)) {
-    try {
-        Push-Location $TargetPath
-        
-        # Check if git is initialized
-        $gitExists = Test-Path (Join-Path $TargetPath ".git")
-        
-        if (-not $gitExists) {
-            Write-Host "   [INFO] Initializing git repository..." -ForegroundColor Cyan
-            & git init 2>&1 | Out-Null
-            
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "   [OK] Git repository initialized" -ForegroundColor Green
-            }
-            else {
-                Write-Host "   [ERROR] Failed to initialize git repository" -ForegroundColor Red
-                Pop-Location
-                Write-Host ""
-                return
-            }
-        }
-        else {
-            Write-Host "   [INFO] Git repository already initialized" -ForegroundColor Cyan
-        }
-        
-        # Check if origin already exists
-        $originExists = & git remote get-url origin 2>&1
-        
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "   [INFO] Updating existing origin: $originExists -> $gitRepoUrl" -ForegroundColor Cyan
-            & git remote set-url origin $gitRepoUrl 2>&1 | Out-Null
-            
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "   [OK] Git origin updated to: $gitRepoUrl" -ForegroundColor Green
-            }
-            else {
-                Write-Host "   [ERROR] Failed to update git origin" -ForegroundColor Red
-            }
-        }
-        else {
-            Write-Host "   [INFO] Adding git origin: $gitRepoUrl" -ForegroundColor Cyan
-            & git remote add origin $gitRepoUrl 2>&1 | Out-Null
-            
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "   [OK] Git origin added: $gitRepoUrl" -ForegroundColor Green
-            }
-            else {
-                Write-Host "   [ERROR] Failed to add git origin" -ForegroundColor Red
-            }
-        }
-        
-        Pop-Location
-    }
-    catch {
-        Pop-Location
-        Write-Host "   [ERROR] Git setup failed: $($_.Exception.Message)" -ForegroundColor Red
-    }
+if ($ReInstall) {
+    Write-Host "   [SKIPPED] Re-install mode: Using existing Git configuration" -ForegroundColor Yellow
+    $gitRepoUrl = ""
 }
 else {
-    Write-Host "   [SKIPPED] No GitHub repository URL provided" -ForegroundColor Yellow
-    Write-Host "   [NOTE] You can set it later with: git remote add origin <url>" -ForegroundColor Yellow
+    Write-Host ""
+    $gitRepoUrl = Read-Host "   GitHub repository URL (e.g., https://github.com/user/repo.git)"
+    Write-Host ""
+
+    if (-not [string]::IsNullOrWhiteSpace($gitRepoUrl)) {
+        try {
+            Push-Location $TargetPath
+            
+            # Check if git is initialized
+            $gitExists = Test-Path (Join-Path $TargetPath ".git")
+            
+            if (-not $gitExists) {
+                Write-Host "   [INFO] Initializing git repository..." -ForegroundColor Cyan
+                & git init 2>&1 | Out-Null
+                
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "   [OK] Git repository initialized" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "   [ERROR] Failed to initialize git repository" -ForegroundColor Red
+                    Pop-Location
+                    Write-Host ""
+                    return
+                }
+            }
+            else {
+                Write-Host "   [INFO] Git repository already initialized" -ForegroundColor Cyan
+            }
+            
+            # Check if origin already exists
+            $originExists = & git remote get-url origin 2>&1
+            
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "   [INFO] Updating existing origin: $originExists -> $gitRepoUrl" -ForegroundColor Cyan
+                & git remote set-url origin $gitRepoUrl 2>&1 | Out-Null
+                
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "   [OK] Git origin updated to: $gitRepoUrl" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "   [ERROR] Failed to update git origin" -ForegroundColor Red
+                }
+            }
+            else {
+                Write-Host "   [INFO] Adding git origin: $gitRepoUrl" -ForegroundColor Cyan
+                & git remote add origin $gitRepoUrl 2>&1 | Out-Null
+                
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "   [OK] Git origin added: $gitRepoUrl" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "   [ERROR] Failed to add git origin" -ForegroundColor Red
+                }
+            }
+            
+            Pop-Location
+        }
+        catch {
+            Pop-Location
+            Write-Host "   [ERROR] Git setup failed: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+    else {
+        Write-Host "   [SKIPPED] No GitHub repository URL provided" -ForegroundColor Yellow
+        Write-Host "   [NOTE] You can set it later with: git remote add origin <url>" -ForegroundColor Yellow
+    }
 }
 Write-Host ""
 
