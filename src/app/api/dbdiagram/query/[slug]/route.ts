@@ -1,13 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { db } from "~/server/db";
 import { pool as dbPool } from "~/server/db-pool";
+import type { Prisma } from "@prisma/client";
 
 // Force Node.js runtime for raw SQL queries
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const DB_FILE_PATH = join(process.cwd(), "public", "query", "database.json");
 
 interface TableInfo {
   table_name: string;
@@ -35,21 +33,89 @@ interface IndexInfo {
   is_unique: boolean;
 }
 
-function getDatabaseJson() {
+interface DiagramTable {
+  name: string;
+  schemaName: string;
+  x: number;
+  y: number;
+}
+
+interface DiagramData {
+  tables: DiagramTable[];
+}
+
+/**
+ * Get diagram config from database
+ */
+async function getDiagramConfig(slug: string) {
   try {
-    const data = readFileSync(DB_FILE_PATH, "utf-8");
-    return JSON.parse(data);
-  } catch {
+    const config = await db.diagramConfig.findUnique({
+      where: { slug },
+    });
+    
+    if (!config) return null;
+    
+    return {
+      _id: slug,
+      content: config.content,
+      userid: config.userid,
+      name: config.name,
+      diagram: config.diagram as unknown as DiagramData,
+      tableGroups: config.tableGroups,
+      referencePaths: config.referencePaths,
+      detailLevel: config.detailLevel,
+      createdAt: config.createdAt.toISOString(),
+      updatedAt: config.updatedAt.toISOString(),
+    };
+  } catch (error) {
+    console.error("[API] Error fetching diagram config:", error);
     return null;
   }
 }
 
-function saveDatabaseJson(data: unknown) {
+/**
+ * Save diagram config to database
+ */
+async function saveDiagramConfig(
+  slug: string,
+  data: {
+    content: string;
+    userid: string;
+    name: string;
+    diagram: DiagramData;
+    tableGroups: unknown[];
+    referencePaths: unknown[];
+    detailLevel: string;
+  }
+) {
   try {
-    writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), "utf-8");
+    const result = await db.diagramConfig.upsert({
+      where: { slug },
+      create: {
+        slug,
+        content: data.content,
+        userid: data.userid,
+        name: data.name,
+        diagram: data.diagram as unknown as Prisma.InputJsonValue,
+        tableGroups: data.tableGroups as unknown as Prisma.InputJsonValue,
+        referencePaths: data.referencePaths as unknown as Prisma.InputJsonValue,
+        detailLevel: data.detailLevel,
+      },
+      update: {
+        content: data.content,
+        userid: data.userid,
+        name: data.name,
+        diagram: data.diagram as unknown as Prisma.InputJsonValue,
+        tableGroups: data.tableGroups as unknown as Prisma.InputJsonValue,
+        referencePaths: data.referencePaths as unknown as Prisma.InputJsonValue,
+        detailLevel: data.detailLevel,
+      },
+    });
+    
+    console.log("[API] ✓ Diagram config saved to database (id:", result.id, ")");
     return true;
   } catch (error) {
-    console.error("[API] Error saving database.json:", error);
+    console.error("[API] Error saving diagram config:", error);
     return false;
   }
 }
@@ -120,10 +186,9 @@ function generateDbmlFromSchema(
 
       if (col.column_default && !col.column_default.includes("nextval")) {
         let defaultVal = col.column_default
-          .replace(/::[\w\s[\]"]+$/g, "") // Remove type cast like ::text[]
+          .replace(/::[\w\s[\]"]+$/g, "")
           .trim();
 
-        // Handle common default values
         if (
           defaultVal === "now()" ||
           defaultVal === "CURRENT_TIMESTAMP" ||
@@ -137,18 +202,15 @@ function generateDbmlFromSchema(
           defaultVal === "'{}'" ||
           defaultVal === "{}"
         ) {
-          // Skip empty array defaults - not supported in DBML
+          // Skip empty array defaults
         } else if (defaultVal === "true" || defaultVal === "false") {
           attrs.push(`default: ${defaultVal}`);
         } else if (/^-?\d+(\.\d+)?$/.test(defaultVal)) {
-          // Numeric default
           attrs.push(`default: ${defaultVal}`);
         } else if (defaultVal.startsWith("'") && defaultVal.endsWith("'")) {
-          // String default - convert to double quotes
           const strVal = defaultVal.slice(1, -1);
           attrs.push(`default: "${strVal}"`);
         } else if (defaultVal !== "" && !defaultVal.includes("(")) {
-          // Other non-function defaults - wrap in quotes if not already
           attrs.push(`default: "${defaultVal}"`);
         }
       }
@@ -207,13 +269,13 @@ function generateDbmlFromSchema(
   return lines.join("\n");
 }
 
-async function syncDatabaseSchema(): Promise<{
+async function syncDatabaseSchema(slug: string): Promise<{
   success: boolean;
   data?: unknown;
   error?: string;
 }> {
   try {
-    console.log("[Sync] Syncing schema from Supabase...");
+    console.log("[Sync] Syncing schema from Supabase for slug:", slug);
 
     const columnsQuery = await dbPool.query<TableInfo>(`
       SELECT 
@@ -314,7 +376,8 @@ async function syncDatabaseSchema(): Promise<{
       `[Sync] Generated DBML: ${tables.size} tables, ${foreignKeysResult.length} relationships`
     );
 
-    const existingData = getDatabaseJson();
+    // Get existing config from database to preserve positions
+    const existingData = await getDiagramConfig(slug);
 
     const existingPositions = new Map<string, { x: number; y: number }>();
     if (existingData?.diagram?.tables) {
@@ -323,12 +386,7 @@ async function syncDatabaseSchema(): Promise<{
       }
     }
 
-    const newTables: Array<{
-      name: string;
-      schemaName: string;
-      x: number;
-      y: number;
-    }> = [];
+    const newTables: DiagramTable[] = [];
     let xOffset = 50;
     let yOffset = 50;
     const COL_WIDTH = 300;
@@ -362,28 +420,33 @@ async function syncDatabaseSchema(): Promise<{
     }
 
     const updatedData = {
-      _id: existingData?._id || "openleviator_dashboard",
       content: dbmlContent,
       userid: existingData?.userid || "openleviator",
       name: existingData?.name || "OpenLeviator Dashboard",
       diagram: {
         tables: newTables,
       },
-      tableGroups: existingData?.tableGroups || [],
-      referencePaths: existingData?.referencePaths || [],
+      tableGroups: (existingData?.tableGroups as unknown[]) || [],
+      referencePaths: (existingData?.referencePaths as unknown[]) || [],
       detailLevel: existingData?.detailLevel || "All",
-      createdAt: existingData?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
-    saveDatabaseJson(updatedData);
+    // Save to database
+    await saveDiagramConfig(slug, updatedData);
     console.log("[Sync] Schema synced successfully");
 
-    return { success: true, data: updatedData };
+    return {
+      success: true,
+      data: {
+        _id: slug,
+        ...updatedData,
+        createdAt: existingData?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    };
   } catch (error) {
     console.error("[Sync] Error syncing schema:", error);
-    // Return existing data if sync fails
-    const existingData = getDatabaseJson();
+    const existingData = await getDiagramConfig(slug);
     if (existingData) {
       return { success: false, data: existingData, error: String(error) };
     }
@@ -391,9 +454,14 @@ async function syncDatabaseSchema(): Promise<{
   }
 }
 
-export async function GET() {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params;
+
   // Always sync from database before returning
-  const result = await syncDatabaseSchema();
+  const result = await syncDatabaseSchema(slug);
 
   if (result.data) {
     return NextResponse.json(result.data);
@@ -402,9 +470,14 @@ export async function GET() {
   return NextResponse.json({ error: "Database not found" }, { status: 404 });
 }
 
-export async function POST() {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params;
+
   // Also sync from database on POST (dbdiagram.io uses POST to fetch data)
-  const result = await syncDatabaseSchema();
+  const result = await syncDatabaseSchema(slug);
 
   if (result.data) {
     return NextResponse.json(result.data);
@@ -413,70 +486,57 @@ export async function POST() {
   return NextResponse.json({ error: "Database not found" }, { status: 404 });
 }
 
-export async function PUT(request: NextRequest) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
   try {
+    const { slug } = await params;
     const body = await request.json();
 
-    // Get existing data
-    const existingData = getDatabaseJson();
-    if (!existingData) {
-      return NextResponse.json(
-        { error: "Database not found" },
-        { status: 404 },
-      );
-    }
+    // Get existing data from database
+    const existingData = await getDiagramConfig(slug);
+    
+    // Build update data
+    const updateData = {
+      content: body.content ?? existingData?.content ?? "",
+      userid: body.userid ?? existingData?.userid ?? "openleviator",
+      name: body.name ?? existingData?.name ?? "OpenLeviator Dashboard",
+      diagram: existingData?.diagram ?? { tables: [] },
+      tableGroups: body.tableGroups ?? (existingData?.tableGroups as unknown[]) ?? [],
+      referencePaths: body.referencePaths ?? (existingData?.referencePaths as unknown[]) ?? [],
+      detailLevel: body.detailLevel ?? existingData?.detailLevel ?? "All",
+    };
 
-    // Deep merge the update with existing data
-    const updatedData = { ...existingData };
-
-    // Update diagram (contains table positions)
+    // Update diagram positions if provided
     if (body.diagram) {
       if (body.diagram.tables && Array.isArray(body.diagram.tables)) {
-        // Simply replace the tables array with the new one
-        // The client sends the complete, correctly-named tables list
         console.log("[API] Received", body.diagram.tables.length, "tables");
         console.log("[API] First table:", body.diagram.tables[0]);
-
-        updatedData.diagram = {
-          ...existingData.diagram,
+        updateData.diagram = {
+          ...updateData.diagram,
           ...body.diagram,
           tables: body.diagram.tables,
         };
       } else {
-        updatedData.diagram = {
-          ...existingData.diagram,
+        updateData.diagram = {
+          ...updateData.diagram,
           ...body.diagram,
         };
       }
     }
 
-    // Update content if provided
-    if (body.content !== undefined) {
-      updatedData.content = body.content;
-    }
-
-    // Update referencePaths if provided
-    if (body.referencePaths !== undefined) {
-      updatedData.referencePaths = body.referencePaths;
-    }
-
-    // Update tableGroups if provided
-    if (body.tableGroups !== undefined) {
-      updatedData.tableGroups = body.tableGroups;
-    }
-
-    // Update detailLevel if provided
-    if (body.detailLevel !== undefined) {
-      updatedData.detailLevel = body.detailLevel;
-    }
-
-    // Update timestamp
-    updatedData.updatedAt = new Date().toISOString();
-
-    // Save to file
-    if (saveDatabaseJson(updatedData)) {
-      console.log("[API] ✓ Diagram saved to database.json");
-      return NextResponse.json(updatedData);
+    // Save to database
+    const saved = await saveDiagramConfig(slug, updateData);
+    
+    if (saved) {
+      const result = {
+        _id: slug,
+        ...updateData,
+        createdAt: existingData?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      return NextResponse.json(result);
     } else {
       return NextResponse.json({ error: "Failed to save" }, { status: 500 });
     }
@@ -484,11 +544,14 @@ export async function PUT(request: NextRequest) {
     console.error("[API] Error updating database:", error);
     return NextResponse.json(
       { error: "Invalid request body" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 }
 
-export async function PATCH(request: NextRequest) {
-  return PUT(request);
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ slug: string }> }
+) {
+  return PUT(request, context);
 }

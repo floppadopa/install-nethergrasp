@@ -322,6 +322,50 @@ foreach ($file in $assetFiles) {
 Write-Host "   [OK] Assets copied ($($filescopied - $assetStart) files)" -ForegroundColor Green
 Write-Host ""
 
+# 4.5. Update database.json with project-specific values
+Write-Host "[STEP 4.5/10] Updating database.json with project info..." -ForegroundColor Yellow
+
+$databaseJsonPath = Join-Path $TargetPath "public\query\database.json"
+if (Test-Path -LiteralPath $databaseJsonPath) {
+    try {
+        # Extract project name from target path (last folder)
+        $projectFolderName = Split-Path -Leaf $TargetPath
+        
+        # Create formatted versions:
+        # _id: folder name with dashes replaced by underscores (e.g., "my-project" -> "my_project")
+        $projectId = $projectFolderName -replace '-', '_'
+        
+        # userId: folder name without dashes/underscores, lowercase (e.g., "my-project" -> "myproject")
+        $projectUserId = ($projectFolderName -replace '[-_]', '').ToLower()
+        
+        # name: Title Case with spaces (e.g., "my-project" -> "My Project")
+        $projectDisplayName = ($projectFolderName -replace '[-_]', ' ') -replace '\b(\w)', { $_.Groups[1].Value.ToUpper() }
+        
+        # Read and update the JSON
+        $databaseJson = Get-Content -LiteralPath $databaseJsonPath -Raw | ConvertFrom-Json
+        
+        $databaseJson._id = $projectId
+        $databaseJson.userid = $projectUserId
+        $databaseJson.name = $projectDisplayName
+        
+        # Write back to file
+        $databaseJson | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $databaseJsonPath -Encoding UTF8
+        
+        Write-Host "   [OK] database.json updated:" -ForegroundColor Green
+        Write-Host "      _id: $projectId" -ForegroundColor Cyan
+        Write-Host "      userid: $projectUserId" -ForegroundColor Cyan
+        Write-Host "      name: $projectDisplayName" -ForegroundColor Cyan
+    }
+    catch {
+        Write-Host "   [ERROR] Failed to update database.json: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "   [NOTE] You can manually update _id, userid, and name in public/query/database.json" -ForegroundColor Yellow
+    }
+}
+else {
+    Write-Host "   [WARNING] database.json not found at public/query/database.json" -ForegroundColor Yellow
+}
+Write-Host ""
+
 # 5. Copy Cursor configuration
 Write-Host "[STEP 5/10] Copying Cursor configuration..." -ForegroundColor Yellow
 
@@ -588,19 +632,17 @@ else {
 }
 Write-Host ""
 
-# 8. Update Prisma schema with Task model
+# 8. Update Prisma schema with Task and DiagramConfig models
 Write-Host "[STEP 8/10] Updating Prisma schema and database client..." -ForegroundColor Yellow
 
-$sourceSchemaPath = Join-Path $SourcePath "prisma\schema.prisma"
 $targetSchemaPath = Join-Path $TargetPath "prisma\schema.prisma"
 
-if ((Test-Path $sourceSchemaPath) -and (Test-Path $targetSchemaPath)) {
+if (Test-Path $targetSchemaPath) {
     try {
-        $sourceSchema = Get-Content $sourceSchemaPath -Raw
         $targetSchema = Get-Content $targetSchemaPath -Raw
+        $schemaModified = $false
         
         # First, ensure Prisma client uses default output path (not custom)
-        $schemaModified = $false
         if ($targetSchema -match 'output\s*=\s*"[^"]+prisma"') {
             Write-Host "   [INFO] Removing custom Prisma output path..." -ForegroundColor Cyan
             # Remove the output line from generator client block while preserving structure
@@ -610,36 +652,122 @@ if ((Test-Path $sourceSchemaPath) -and (Test-Path $targetSchemaPath)) {
             $schemaModified = $true
         }
         
+        # Define the Task model to append
+        $taskModel = @"
+// ============================================
+// Task Management System
+// ============================================
+
+// Nether Grasp Task model - for AI agent task management
+model Task {
+    id                  Int      @id @default(autoincrement())
+    componentName       String   // Name of component being created/fixed
+    componentDirectory  String   // Directory path for the component
+    pageName            String   // Page/context where component is used
+    
+    // Status tracking
+    status              String   @default("Pending") // "Pending", "Running", "Deploying", "Completed", "Error"
+    agentId             String?  // Cursor agent ID
+    agentStatus         String?  // "CREATING", "RUNNING", "FINISHED", "ERROR", "EXPIRED"
+    agentUrl            String?  // URL to view agent progress
+    branchName          String?  // Git branch for this task
+    
+    // Task metadata
+    taskType            String   @default("component") // "component", "auto-fix", "deployment-error"
+    deploymentId        String?  // Vercel deployment ID
+    
+    // Error information (for deployment errors)
+    errorLogs           String?  @db.Text // Store as TEXT for long logs
+    errorType           String?
+    errorMessage        String?  @db.Text
+    errorComponentPath  String?
+    errorLineNumber     Int?
+    errorIsAutoFixable  Boolean? @default(false)
+    errorSeverity       String?  // "error", "warning"
+    errorDeploymentUrl  String?
+    errorOriginalTask   String?
+    errorOriginalAgentId String?
+    
+    // Timestamps
+    createdAt           DateTime @default(now())
+    completedAt         DateTime?
+    updatedAt           DateTime @updatedAt
+
+    @@index([agentId])
+    @@index([status])
+    @@index([branchName])
+    @@index([createdAt])
+}
+"@
+
+        # Define the DiagramConfig model to append
+        $diagramConfigModel = @"
+// ============================================
+// Diagram Configuration Storage
+// ============================================
+
+// Stores diagram positions and settings for dbdiagram visualization
+model DiagramConfig {
+    id             Int      @id @default(autoincrement())
+    slug           String   @unique @db.VarChar(255) // Diagram identifier (e.g., "zebi", "main")
+    
+    // DBML content
+    content        String   @db.Text // The DBML schema content
+    
+    // Metadata
+    userid         String   @db.VarChar(255) // Owner identifier
+    name           String   @db.VarChar(255) // Display name
+    
+    // Diagram positions and settings (stored as JSON)
+    diagram        Json     @default("{}") // Contains tables array with x, y positions
+    tableGroups    Json     @default("[]") // Table groupings
+    referencePaths Json     @default("[]") // Reference path customizations
+    detailLevel    String   @default("All") @db.VarChar(50)
+    
+    // Timestamps
+    createdAt      DateTime @default(now()) @map("created_at")
+    updatedAt      DateTime @updatedAt @map("updated_at")
+    
+    @@map("diagram_config")
+}
+"@
+
         # Check if Task model already exists in target
         if ($targetSchema -match "model Task \{") {
             Write-Host "   [INFO] Task model already exists in schema" -ForegroundColor Cyan
         }
         else {
-            # Extract Task model from source schema
-            if ($sourceSchema -match "(?s)(// Nether Grasp Task model.*?model Task \{.*?\n\})") {
-                $taskModel = $matches[1]
-                
-                # Reload schema if it was modified
-                if ($schemaModified) {
-                    $targetSchema = Get-Content $targetSchemaPath -Raw
-                }
-                
-                # Append Task model to target schema
-                $updatedSchema = $targetSchema.TrimEnd() + "`n`n" + $taskModel + "`n"
-                Set-Content $targetSchemaPath $updatedSchema
-                
-                Write-Host "   [OK] Added Task model to schema.prisma" -ForegroundColor Green
-                $schemaModified = $true
+            # Reload schema if it was modified
+            if ($schemaModified) {
+                $targetSchema = Get-Content $targetSchemaPath -Raw
             }
-            else {
-                Write-Host "   [ERROR] Could not extract Task model from source schema" -ForegroundColor Red
-                Write-Host "   [NOTE] Manually add Task model to prisma/schema.prisma" -ForegroundColor Yellow
-                $errors++
-            }
+            
+            # Append Task model to target schema
+            $targetSchema = $targetSchema.TrimEnd() + "`n`n" + $taskModel
+            Set-Content $targetSchemaPath $targetSchema
+            
+            Write-Host "   [OK] Added Task model to schema.prisma" -ForegroundColor Green
+            $schemaModified = $true
         }
         
-        # Note: db.ts is now copied from source in Step 5.1, so we skip import path modification
-        Write-Host "   [INFO] db.ts was copied from source (Step 5.1) - using WASM Prisma adapter" -ForegroundColor Cyan
+        # Check if DiagramConfig model already exists in target
+        # Reload schema to get latest content
+        $targetSchema = Get-Content $targetSchemaPath -Raw
+        
+        if ($targetSchema -match "model DiagramConfig \{") {
+            Write-Host "   [INFO] DiagramConfig model already exists in schema" -ForegroundColor Cyan
+        }
+        else {
+            # Append DiagramConfig model to target schema
+            $targetSchema = $targetSchema.TrimEnd() + "`n`n" + $diagramConfigModel
+            Set-Content $targetSchemaPath $targetSchema
+            
+            Write-Host "   [OK] Added DiagramConfig model to schema.prisma" -ForegroundColor Green
+            $schemaModified = $true
+        }
+        
+        # Note: db.ts is now copied from source in Step 5.1
+        Write-Host "   [INFO] db.ts was copied from source (Step 5.1)" -ForegroundColor Cyan
         
         # Generate Prisma client if any changes were made
         if ($schemaModified) {
@@ -659,13 +787,13 @@ if ((Test-Path $sourceSchemaPath) -and (Test-Path $targetSchemaPath)) {
     }
     catch {
         Write-Host "   [ERROR] Failed to update schema: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "   [NOTE] Manually add Task model to prisma/schema.prisma" -ForegroundColor Yellow
+        Write-Host "   [NOTE] Manually add Task and DiagramConfig models to prisma/schema.prisma" -ForegroundColor Yellow
         $errors++
     }
 }
 else {
-    Write-Host "   [WARNING] schema.prisma not found in source or target" -ForegroundColor Yellow
-    Write-Host "   [NOTE] Manually create prisma/schema.prisma and add Task model" -ForegroundColor Yellow
+    Write-Host "   [WARNING] schema.prisma not found in target project" -ForegroundColor Yellow
+    Write-Host "   [NOTE] Manually create prisma/schema.prisma and add Task and DiagramConfig models" -ForegroundColor Yellow
 }
 Write-Host ""
 

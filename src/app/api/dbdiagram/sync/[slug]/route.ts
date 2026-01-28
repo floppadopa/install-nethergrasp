@@ -1,13 +1,11 @@
-import { NextResponse } from "next/server";
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { type NextRequest, NextResponse } from "next/server";
+import { db } from "~/server/db";
 import { pool as dbPool } from "~/server/db-pool";
+import type { Prisma } from "@prisma/client";
 
 // Force Node.js runtime for raw SQL queries
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const DB_FILE_PATH = join(process.cwd(), "public", "query", "database.json");
 
 interface TableInfo {
   table_name: string;
@@ -35,21 +33,93 @@ interface IndexInfo {
   is_unique: boolean;
 }
 
-function getDatabaseJson() {
+interface DiagramTable {
+  name: string;
+  schemaName: string;
+  x: number;
+  y: number;
+}
+
+interface DiagramData {
+  tables: DiagramTable[];
+}
+
+/**
+ * Get diagram config from database
+ */
+async function getDiagramConfig(slug: string) {
   try {
-    const data = readFileSync(DB_FILE_PATH, "utf-8");
-    return JSON.parse(data);
-  } catch {
+    const config = await db.diagramConfig.findUnique({
+      where: { slug },
+    });
+
+    if (!config) return null;
+
+    return {
+      _id: slug,
+      content: config.content,
+      userid: config.userid,
+      name: config.name,
+      diagram: config.diagram as unknown as DiagramData,
+      tableGroups: config.tableGroups,
+      referencePaths: config.referencePaths,
+      detailLevel: config.detailLevel,
+      createdAt: config.createdAt.toISOString(),
+      updatedAt: config.updatedAt.toISOString(),
+    };
+  } catch (error) {
+    console.error("[Sync API] Error fetching diagram config:", error);
     return null;
   }
 }
 
-function saveDatabaseJson(data: unknown) {
+/**
+ * Save diagram config to database
+ */
+async function saveDiagramConfig(
+  slug: string,
+  data: {
+    content: string;
+    userid: string;
+    name: string;
+    diagram: DiagramData;
+    tableGroups: unknown[];
+    referencePaths: unknown[];
+    detailLevel: string;
+  }
+) {
   try {
-    writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), "utf-8");
+    const result = await db.diagramConfig.upsert({
+      where: { slug },
+      create: {
+        slug,
+        content: data.content,
+        userid: data.userid,
+        name: data.name,
+        diagram: data.diagram as unknown as Prisma.InputJsonValue,
+        tableGroups: data.tableGroups as unknown as Prisma.InputJsonValue,
+        referencePaths: data.referencePaths as unknown as Prisma.InputJsonValue,
+        detailLevel: data.detailLevel,
+      },
+      update: {
+        content: data.content,
+        userid: data.userid,
+        name: data.name,
+        diagram: data.diagram as unknown as Prisma.InputJsonValue,
+        tableGroups: data.tableGroups as unknown as Prisma.InputJsonValue,
+        referencePaths: data.referencePaths as unknown as Prisma.InputJsonValue,
+        detailLevel: data.detailLevel,
+      },
+    });
+
+    console.log(
+      "[Sync API] ✓ Diagram config saved to database (id:",
+      result.id,
+      ")"
+    );
     return true;
   } catch (error) {
-    console.error("[Sync API] Error saving database.json:", error);
+    console.error("[Sync API] Error saving diagram config:", error);
     return false;
   }
 }
@@ -76,14 +146,14 @@ function mapPostgresTypeToDbml(pgType: string): string {
     jsonb: "Json",
     uuid: "String",
     bytea: "Bytes",
-    "ARRAY": "String[]",
+    ARRAY: "String[]",
   };
-  
+
   // Handle array types
   if (pgType.endsWith("[]") || pgType.startsWith("_")) {
     return "String[]";
   }
-  
+
   return typeMap[pgType.toLowerCase()] || "String";
 }
 
@@ -191,9 +261,13 @@ function generateDbmlFromSchema(
   return lines.join("\n");
 }
 
-export async function GET() {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
   try {
-    console.log("[Sync API] Starting database schema sync...");
+    const { slug } = await params;
+    console.log("[Sync API] Starting database schema sync for slug:", slug);
 
     // Query all tables and columns from information_schema
     const columnsQuery = await dbPool.query<TableInfo>(`
@@ -273,7 +347,9 @@ export async function GET() {
         existing.push(row);
       } else if (row.constraint_type === "PRIMARY KEY") {
         // Update to mark as primary key
-        const idx = existing.findIndex((c) => c.column_name === row.column_name);
+        const idx = existing.findIndex(
+          (c) => c.column_name === row.column_name
+        );
         if (idx >= 0) {
           existing[idx] = row;
         }
@@ -300,8 +376,8 @@ export async function GET() {
       `[Sync API] Generated DBML with ${tables.size} tables and ${foreignKeysResult.length} relationships`
     );
 
-    // Get existing database.json to preserve positions
-    const existingData = getDatabaseJson();
+    // Get existing config from database to preserve positions
+    const existingData = await getDiagramConfig(slug);
 
     // Build table positions map from existing data
     const existingPositions = new Map<string, { x: number; y: number }>();
@@ -312,12 +388,7 @@ export async function GET() {
     }
 
     // Create new tables array with positions
-    const newTables: Array<{
-      name: string;
-      schemaName: string;
-      x: number;
-      y: number;
-    }> = [];
+    const newTables: DiagramTable[] = [];
     let xOffset = 50;
     let yOffset = 50;
     const COL_WIDTH = 300;
@@ -351,23 +422,22 @@ export async function GET() {
       }
     }
 
-    // Update database.json
-    const updatedData = {
-      _id: existingData?._id || "openleviator_dashboard",
+    // Save to database
+    const updateData = {
       content: dbmlContent,
       userid: existingData?.userid || "openleviator",
       name: existingData?.name || "OpenLeviator Dashboard",
       diagram: {
         tables: newTables,
       },
-      tableGroups: existingData?.tableGroups || [],
-      referencePaths: existingData?.referencePaths || [],
+      tableGroups: (existingData?.tableGroups as unknown[]) || [],
+      referencePaths: (existingData?.referencePaths as unknown[]) || [],
       detailLevel: existingData?.detailLevel || "All",
-      createdAt: existingData?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
-    if (saveDatabaseJson(updatedData)) {
+    const saved = await saveDiagramConfig(slug, updateData);
+
+    if (saved) {
       console.log("[Sync API] Successfully synced database schema");
       return NextResponse.json({
         success: true,
