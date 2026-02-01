@@ -1,0 +1,27 @@
+---
+description: "USE WHEN: feature impacts user journeys across UI+API+DB (auth, checkout, CRUD, onboarding) => add E2E tests"
+globs:
+alwaysApply: false
+---
+
+# E2E tests - standards
+
+## Outil
+
+- Utiliser Playwright si présent (sinon proposer Playwright en setup minimal).
+
+## Règles anti-flakiness
+
+- Sélecteurs stables: data-testid (ou role/name) plutôt que CSS fragile.
+- Pas de sleep arbitraire: attendre un état (élément visible, requête finie, navigation).
+- Données contrôlées: seed DB ou factory; pas dépendre d'un compte partagé instable.
+
+## Scénarios minimaux
+
+- Happy path du parcours
+- Cas d'erreur principal (validation, paiement refusé, permission)
+- Vérifier que l'utilisateur voit le bon état UI + que l'état backend est correct
+
+## Traces
+
+- En CI: garder screenshots/traces sur échec.

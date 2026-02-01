@@ -1,0 +1,24 @@
+---
+description: "USE WHEN: implementing/modifying payments, subscriptions, checkout, webhooks => add tests (unit+integration+contract+e2e where relevant)"
+globs:
+alwaysApply: false
+---
+
+# Stripe - règles de dev & tests
+
+## Sécurité
+
+- Jamais de clés live dans le code/tests.
+- Utiliser uniquement le mode test (env vars dédiées).
+
+## Stratégie de test
+
+- Unit: mock Stripe SDK (pas d'appel réseau)
+- Contract: webhook payload + signature + event types + idempotency
+- Integration: simuler webhook/checkout et vérifier effets DB (commande, abonnement, invoice)
+- E2E: couvrir 1 parcours checkout complet si la feature touche le paiement
+
+## Patterns
+
+- Toujours stocker et vérifier un "idempotency key" côté backend pour éviter doubles écritures.
+- Les webhooks doivent être robustes: retry safe, traitement idempotent, logs.

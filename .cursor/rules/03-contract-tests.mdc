@@ -1,0 +1,31 @@
+---
+description: "USE WHEN: changing request/response shapes, error formats, DTOs, or webhook payload handling => add contract tests"
+globs:
+alwaysApply: false
+---
+
+# Contract tests - standards
+
+## Définition
+
+Un contract test vérifie qu'un "consumer" et un "provider" restent compatibles:
+
+- formats de payload (champs, types, nullable)
+- codes d'erreur / structure d'erreur
+- compatibilité backward (ajouter champs ok; supprimer/renommer = breaking)
+
+## Front <-> Back (T3/tRPC)
+
+- Même si les types sont partagés, tester:
+  - la forme runtime (zod parsing) sur inputs/outputs critiques
+  - la structure d'erreur exposée au front (ex: codes, messages, cause)
+- Quand un output change, ajouter un test qui échoue si le shape re-change.
+
+## Webhooks (Stripe)
+
+- Traiter le webhook comme un contrat externe:
+  - vérifier signature / validation
+  - gérer l'idempotency (même event reçu 2 fois)
+  - tester les event types supportés et ceux ignorés proprement
+- En unit: mock Stripe SDK
+- En integration: simuler un event (fixtures/CLI) et vérifier effets DB

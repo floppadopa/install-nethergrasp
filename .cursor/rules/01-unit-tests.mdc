@@ -1,0 +1,27 @@
+---
+description: "USE WHEN: writing/modifying pure functions, business logic, validation (zod), UI components => add unit tests"
+globs:
+alwaysApply: false
+---
+
+# Unit tests (TS) - standards
+
+## Outils
+
+- Utiliser le framework de test déjà présent.
+- Si rien n'existe: préférer Vitest pour TS (rapide, simple).
+- Pour UI React/Next: Testing Library (testing behavior, pas l'implémentation).
+
+## Règles
+
+- Arrange / Act / Assert, noms explicites ("should ... when ...")
+- Couvrir: happy path + edge cases + erreurs
+- Pas de mocks partout: mock uniquement les IO (réseau, DB, dates, crypto), garder la logique réelle.
+- Eviter les snapshots "géants" sur objets instables; préférer assertions ciblées.
+
+## Exemples de cas à toujours considérer
+
+- validation: champs manquants, formats invalides, limites
+- permissions: roles, ownership
+- money: arrondis, cents vs euros, précision
+- dates/timezones: utiliser des dates figées (fake timers si nécessaire)

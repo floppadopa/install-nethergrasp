@@ -1,0 +1,48 @@
+---
+description: "ALWAYS: Definition of Done pour chaque nouvelle feature: tests unit/integration/e2e/contract + CI à jour"
+globs:
+alwaysApply: true
+---
+
+# Definition of Done (DoD) - Nouvelle feature = tests obligatoires
+
+Quand l'utilisateur demande une nouvelle feature, un changement de comportement, un refactor, ou une correction de bug:
+
+## 1) Tu DOIS produire un plan de tests AVANT ou AVEC l'implémentation
+
+Toujours inclure une section "Test Plan" qui couvre, selon pertinence:
+
+- Unit tests (logique pure, utils, validation, composants UI isolés)
+- Integration tests (API/tRPC + DB Prisma/Postgres/Supabase, auth, permissions)
+- Contract tests (front<->back: schémas/DTO; webhooks/Stripe; erreurs)
+- E2E tests (parcours utilisateur critique: login, checkout, CRUD, etc.)
+
+## 2) Tu DOIS livrer le code AVEC les tests
+
+Ne jamais livrer une feature "sans tests" par défaut.
+Si l'utilisateur veut explicitement skip les tests, tu dois:
+
+- le signaler clairement
+- proposer au minimum un squelette de tests à compléter
+
+## 3) Stratégie par défaut (si doute)
+
+- Toujours écrire: unit + integration
+- Ajouter: E2E dès que le changement traverse plusieurs couches (UI→API→DB) ou impacte un parcours user
+- Ajouter: contract dès qu'un boundary change (API outputs, erreurs, webhooks Stripe)
+
+## 4) Conventions et qualité
+
+- Priorité à la stabilité (tests déterministes, pas de dépendance au temps, pas d'attente arbitraire)
+- Isolation: DB de test dédiée; nettoyage entre tests; pas de dépendances réseau non contrôlées
+- Utiliser les outils déjà présents dans le repo. Si absent: proposer un setup minimal (Vitest + Playwright).
+- Chaque nouveau bug corrigé => ajouter un test qui échoue avant fix, puis passe après fix.
+
+## 5) Format de réponse attendu dans tes PR/commits
+
+Toujours fournir:
+
+- "Test Plan" (liste des cas)
+- "Fichiers modifiés"
+- "Commandes pour exécuter les tests"
+- "Notes CI / variables d'env nécessaires"

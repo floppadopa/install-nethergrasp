@@ -1,0 +1,26 @@
+---
+description: "USE WHEN: adding/changing tests, DB schema, env needs => update CI to run unit+integration+e2e consistently"
+globs:
+alwaysApply: false
+---
+
+# CI - règles
+
+## Objectif
+
+Chaque PR doit exécuter automatiquement:
+
+- lint + typecheck
+- unit tests
+- integration tests (avec DB de test)
+- e2e tests (si présents)
+
+## DB en CI
+
+- Démarrer Postgres (service ou équivalent) + migrations avant integration/e2e
+- Variables d'env: utiliser secrets/vars du CI, jamais hardcoder
+
+## E2E en CI
+
+- Lancer l'app en mode test + exécuter Playwright headless
+- Conserver traces/artifacts sur échec

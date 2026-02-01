@@ -1,0 +1,33 @@
+---
+description: "USE WHEN: changing API/tRPC routers, Prisma models, DB queries, auth/permissions => add integration tests with a real test DB"
+globs:
+alwaysApply: false
+---
+
+# Integration tests - DB + API
+
+## Principe
+
+- Un test d'intégration valide l'assemblage: route/procédure API + accès Prisma + contraintes DB + règles d'accès.
+- Utiliser une DB de test (Postgres) isolée: jamais la DB dev/prod.
+
+## DB de test
+
+- Préférer une DB dédiée (DATABASE_URL test) et nettoyer entre tests.
+- Appliquer migrations/schéma avant la suite.
+- Nettoyage: soit transaction rollback par test, soit truncate des tables (ordre FK), soit reset schéma.
+
+## tRPC (si applicable)
+
+- Tester les procédures via un "caller" (ctx réel + prisma réel de test).
+- Tester aussi les erreurs: codes, messages, format (ex: UNAUTHORIZED, BAD_REQUEST).
+
+## Supabase
+
+- Ne pas dépendre d'un projet Supabase distant pour les tests.
+- Si besoin d'auth: mock contrôlé au niveau unit, et au niveau integration utiliser un mécanisme stable (user seed + tokens de test si dispo).
+
+## Assertions
+
+- Vérifier les effets DB: row créée/modifiée, contraintes, relations, soft delete, etc.
+- Vérifier les invariants métier (ex: un user ne voit que ses objets).
